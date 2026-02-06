@@ -1,28 +1,54 @@
-import random
-import string
 import time
 from multiprocessing import Pool, cpu_count, Manager
 from datetime import datetime, timedelta
 import sys
 
+# MSVCRT rand() and srand() implementation
+class MSVCRTRand:
+    def __init__(self, seed=1):
+        self.state = seed
+
+    def srand(self, seed):
+        self.state = seed
+
+    def rand(self):
+        # MSVCRT uses: state = (state * 214013 + 2531011) & 0xFFFFFFFF
+        # then returns (state >> 16) & 0x7FFF
+        self.state = (self.state * 214013 + 2531011) & 0xFFFFFFFF
+        return (self.state >> 16) & 0x7FFF
+
+def get_char_from_pool(rng, chars):
+    return chars[rng.rand() % len(chars)]
+
 def generate_passwords_for_day(args):
     current_date, min_length, max_length, include_symbols, progress = args
-    chars = string.ascii_letters + string.digits
+    
+    # Character pools as loosely used in RoboForm 7
+    lowercase = "abcdefghijklmnopqrstuvwxyz"
+    uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    digits = "0123456789"
+    symbols = "!#%&()*+,-./:;<=>?@[]^_{|}~"
+    
+    chars = lowercase + uppercase + digits
     if include_symbols:
-        chars += string.punctuation  
+        chars += symbols
 
     passwords = []
 
-    # This function simulates the date-time generation feature
-    time_struct = time.strptime(current_date, '%Y-%m-%d')
-    base_time = time.mktime(time_struct)
+    # RoboForm 7 versions prior to 7.9.14 seeded with time(NULL)
+    # which is seconds since Jan 1, 1970
+    time_struct = datetime.strptime(current_date, '%Y-%m-%d')
+    base_time = int(time.mktime(time_struct.timetuple()))
 
+    rng = MSVCRTRand()
 
     for length in range(min_length, max_length + 1):
         for second in range(86400):  # 86400 for all the seconds in a day
             time_seed = base_time + second
-            random.seed(time_seed)
-            password = ''.join(random.choice(chars) for _ in range(length))
+            rng.srand(time_seed)
+            
+            # RoboForm generation logic: pick 'length' characters using rand()
+            password = ''.join(get_char_from_pool(rng, chars) for _ in range(length))
             passwords.append(password)
             progress.put(password)
 
