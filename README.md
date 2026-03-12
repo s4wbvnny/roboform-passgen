@@ -1,6 +1,6 @@
 # Installation
 ```
-git clone https://github.com/Bugyei-Thomas/roboform-passgen
+git clone https://github.com/s4wbvnny/roboform-passgen
 cd roboform-passgen
 ```
 ## Usage
